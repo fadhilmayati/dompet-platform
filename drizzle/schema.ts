@@ -1,15 +1,16 @@
 import { relations, sql } from "drizzle-orm";
 import {
   bigserial,
+  boolean,
   index,
   jsonb,
+  numeric,
   pgTable,
   text,
   timestamp,
   uniqueIndex,
   uuid,
   varchar,
-  numeric,
   vector,
 } from "drizzle-orm/pg-core";
 
@@ -269,6 +270,167 @@ export const customerEmbeddings = pgTable(
   })
 );
 
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 255 }).notNull(),
+    name: text("name").notNull(),
+    role: text("role").notNull().default("member"),
+    avatarUrl: text("avatar_url"),
+    profile: jsonb("profile")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantEmailUnique: uniqueIndex("users_tenant_email_unique").on(
+      table.tenantId,
+      table.email
+    ),
+    tenantIdx: index("users_tenant_idx").on(table.tenantId),
+  })
+);
+
+export const badges = pgTable(
+  "badges",
+  {
+    id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    icon: text("icon"),
+    criteria: jsonb("criteria")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantSlugUnique: uniqueIndex("badges_tenant_slug_unique").on(
+      table.tenantId,
+      table.slug
+    ),
+    tenantIdx: index("badges_tenant_idx").on(table.tenantId),
+  })
+);
+
+export const transactions = pgTable(
+  "transactions",
+  {
+    id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    amount: numeric("amount", { precision: 20, scale: 2 }).notNull(),
+    currency: varchar("currency", { length: 3 }).notNull(),
+    type: text("type").notNull(),
+    category: text("category"),
+    description: text("description"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    metadata: jsonb("metadata")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("transactions_tenant_idx").on(table.tenantId),
+    userIdx: index("transactions_user_idx").on(table.userId),
+    occurredIdx: index("transactions_occurred_idx").on(table.occurredAt),
+  })
+);
+
+export const rules = pgTable(
+  "rules",
+  {
+    id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    trigger: text("trigger").notNull(),
+    conditions: jsonb("conditions")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    actions: jsonb("actions")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("rules_tenant_idx").on(table.tenantId),
+  })
+);
+
+export const challenges = pgTable(
+  "challenges",
+  {
+    id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    metric: text("metric").notNull(),
+    targetValue: numeric("target_value", { precision: 20, scale: 2 }).notNull(),
+    window: text("window").notNull(),
+    rewardBadgeId: uuid("reward_badge_id").references(() => badges.id, {
+      onDelete: "set null",
+    }),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    metadata: jsonb("metadata")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantSlugUnique: uniqueIndex("challenges_tenant_slug_unique").on(
+      table.tenantId,
+      table.slug
+    ),
+    tenantIdx: index("challenges_tenant_idx").on(table.tenantId),
+    badgeIdx: index("challenges_badge_idx").on(table.rewardBadgeId),
+  })
+);
+
 export const tenantsRelations = relations(tenants, ({ many }) => ({
   connectors: many(paymentConnectors),
   customers: many(customers),
@@ -276,6 +438,11 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   paymentIntents: many(paymentIntents),
   idempotencyKeys: many(idempotencyKeys),
   customerEmbeddings: many(customerEmbeddings),
+  users: many(users),
+  transactions: many(transactions),
+  rules: many(rules),
+  challenges: many(challenges),
+  badges: many(badges),
 }));
 
 export const paymentConnectorsRelations = relations(
@@ -363,6 +530,56 @@ export const paymentEventsRelations = relations(
   })
 );
 
+export const usersRelations = relations(users, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [users.tenantId],
+    references: [tenants.id],
+  }),
+  transactions: many(transactions),
+  rules: many(rules),
+}));
+
+export const transactionsRelations = relations(transactions, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [transactions.tenantId],
+    references: [tenants.id],
+  }),
+  user: one(users, {
+    fields: [transactions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const rulesRelations = relations(rules, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [rules.tenantId],
+    references: [tenants.id],
+  }),
+  user: one(users, {
+    fields: [rules.userId],
+    references: [users.id],
+  }),
+}));
+
+export const badgesRelations = relations(badges, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [badges.tenantId],
+    references: [tenants.id],
+  }),
+  challenges: many(challenges),
+}));
+
+export const challengesRelations = relations(challenges, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [challenges.tenantId],
+    references: [tenants.id],
+  }),
+  rewardBadge: one(badges, {
+    fields: [challenges.rewardBadgeId],
+    references: [badges.id],
+  }),
+}));
+
 export const idempotencyKeysRelations = relations(idempotencyKeys, ({ one }) => ({
   tenant: one(tenants, {
     fields: [idempotencyKeys.tenantId],
@@ -388,3 +605,13 @@ export type Tenant = typeof tenants.$inferSelect;
 export type NewTenant = typeof tenants.$inferInsert;
 export type PaymentIntent = typeof paymentIntents.$inferSelect;
 export type NewPaymentIntent = typeof paymentIntents.$inferInsert;
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type TransactionRecord = typeof transactions.$inferSelect;
+export type NewTransactionRecord = typeof transactions.$inferInsert;
+export type Rule = typeof rules.$inferSelect;
+export type NewRule = typeof rules.$inferInsert;
+export type Badge = typeof badges.$inferSelect;
+export type NewBadge = typeof badges.$inferInsert;
+export type Challenge = typeof challenges.$inferSelect;
+export type NewChallenge = typeof challenges.$inferInsert;
