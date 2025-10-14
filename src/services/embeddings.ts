@@ -1,4 +1,4 @@
-interface EmbeddingRecord {
+export interface EmbeddingRecord {
   id: string;
   vector: number[];
   metadata: Record<string, unknown>;
@@ -31,6 +31,14 @@ export function getEmbedding(id: string): EmbeddingRecord | undefined {
     return undefined;
   }
   return { id: entry.id, vector: [...entry.vector], metadata: { ...entry.metadata } };
+}
+
+export function listEmbeddings(): EmbeddingRecord[] {
+  return Array.from(embeddings.values()).map((entry) => ({
+    id: entry.id,
+    vector: [...entry.vector],
+    metadata: { ...entry.metadata },
+  }));
 }
 
 export function clearEmbeddings(): void {
