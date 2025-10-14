@@ -1,0 +1,32 @@
+{
+  "name": "dompet-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon",
+    "build": "tsc --project tsconfig.json",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.8.1",
+    "@microsoft/fetch-event-source": "^2.0.1",
+    "drizzle-orm": "^0.31.4",
+    "dotenv": "^16.4.5",
+    "hono": "^4.4.4",
+    "pg": "^8.11.3",
+    "pgvector": "^0.1.9",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "@typescript-eslint/eslint-plugin": "^7.8.0",
+    "@typescript-eslint/parser": "^7.8.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "nodemon": "^3.1.0",
+    "prettier": "^3.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}
