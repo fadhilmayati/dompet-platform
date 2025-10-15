@@ -18,7 +18,10 @@ function initialize(): void {
   if (db || !isDbConfigured) {
     return;
   }
-  pool = new Pool({ connectionString: connectionString! });
+  pool = new Pool({
+    connectionString: connectionString!,
+    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
+  });
   db = drizzle(pool, { schema });
 }
 
