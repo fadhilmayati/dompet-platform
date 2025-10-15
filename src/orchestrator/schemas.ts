@@ -33,6 +33,7 @@ export const TransactionSchema = z.object({
   notes: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   rawText: z.string().optional(),
+  idempotencyKey: z.string().min(1).max(128).optional(),
 });
 
 export const RetrievalDocumentSchema = z.object({

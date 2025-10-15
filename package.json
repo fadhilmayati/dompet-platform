@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon",
     "build": "tsc --project tsconfig.json",
-    "start": "node dist/server.js",
+    "start": "npm run build && node dist/server.js",
     "seed": "ts-node --esm --project tsconfig.scripts.json scripts/seed.ts",
     "test:mcp": "ts-node --esm --project tsconfig.scripts.json scripts/test-mcp.ts",
     "eval:run": "ts-node --esm --project tsconfig.scripts.json eval/run.ts"

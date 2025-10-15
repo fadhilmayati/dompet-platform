@@ -19,6 +19,9 @@ app.get("/", (c) => {
   });
 });
 
+app.get("/v1/healthz", (c) => c.json({ ok: true }));
+
+app.route("/v1", apiRouter);
 app.route("/api/v1", apiRouter);
 
 const port = Number(process.env.PORT ?? 3000);
