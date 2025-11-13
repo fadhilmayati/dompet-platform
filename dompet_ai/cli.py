@@ -20,7 +20,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    pipeline = DompetPipeline(args.csv, preview_rows=args.preview_rows)
+    pipeline = DompetPipeline.from_csv(args.csv, preview_rows=args.preview_rows)
 
     print("Dompet AI Offline Financial Review\n===============================")
     for agent_name, output in pipeline.run():

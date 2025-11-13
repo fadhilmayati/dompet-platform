@@ -1,10 +1,11 @@
-"""Pipeline to run Dompet AI agents on CSV transaction data."""
+"""Core orchestration logic for Dompet AI agents."""
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List
+from typing import Iterable, Iterator, List, Mapping, Sequence
 
 import pandas as pd
 
@@ -23,17 +24,47 @@ class Transaction:
         value = abs(self.amount)
         return f"{self.date} | {self.description} | {sign}RM{value:,.2f}"
 
+    @classmethod
+    def from_mapping(cls, data: Mapping[str, object]) -> "Transaction":
+        """Create a transaction from a mapping of values."""
+
+        date = str(data.get("date") or data.get("Date") or "").strip()
+        description = str(
+            data.get("description") or data.get("Description") or ""
+        ).strip()
+        raw_amount = data.get("amount") or data.get("Amount")
+        if isinstance(raw_amount, str):
+            cleaned = re.sub(r"(?i)rm", "", raw_amount)
+            cleaned = cleaned.replace(",", "").strip()
+            amount = float(cleaned)
+        elif raw_amount is None:
+            amount = 0.0
+        else:
+            amount = float(raw_amount)
+
+        return cls(date=date, description=description, amount=amount)
+
 
 class DompetPipeline:
     """Loads transaction data and orchestrates the Ollama-backed agents."""
 
-    def __init__(self, csv_path: str | Path, preview_rows: int = 20) -> None:
-        self.csv_path = Path(csv_path)
-        self.preview_rows = preview_rows
-        self.transactions = self._load_transactions()
+    def __init__(self, transactions: Sequence[Transaction]):
+        self.transactions = list(transactions)
+        if not self.transactions:
+            raise ValueError("No transactions available for analysis.")
 
-    def _load_transactions(self) -> List[Transaction]:
-        df = pd.read_csv(self.csv_path)
+    @classmethod
+    def from_csv(cls, csv_path: str | Path, preview_rows: int = 20) -> "DompetPipeline":
+        """Build a pipeline instance by loading transactions from a CSV file."""
+
+        transactions = cls._load_transactions(csv_path, preview_rows=preview_rows)
+        return cls(transactions)
+
+    @staticmethod
+    def _load_transactions(
+        csv_path: str | Path, preview_rows: int = 20
+    ) -> List[Transaction]:
+        df = pd.read_csv(csv_path)
         required_columns = {"date", "description", "amount"}
         lower_columns = {col.lower() for col in df.columns}
         missing = required_columns - lower_columns
@@ -51,7 +82,7 @@ class DompetPipeline:
         normalised = normalised.sort_values("date", ascending=False)
 
         rows: List[Transaction] = []
-        for _, row in normalised.head(self.preview_rows).iterrows():
+        for _, row in normalised.head(preview_rows).iterrows():
             rows.append(
                 Transaction(
                     date=str(row["date"]),
@@ -61,7 +92,7 @@ class DompetPipeline:
             )
         return rows
 
-    def _build_context(self) -> str:
+    def build_prompt_context(self) -> str:
         header = "date | description | amount"
         lines = "\n".join(tx.to_prompt_row() for tx in self.transactions)
         return f"Latest {len(self.transactions)} transactions:\n{header}\n{lines}"
@@ -77,11 +108,11 @@ class DompetPipeline:
         message = response.get("message") or {}
         return message.get("content", "")
 
-    def run(self) -> Iterable[tuple[str, str]]:
-        if not self.transactions:
-            raise ValueError("No transactions available in the CSV file.")
+    def run(self) -> Iterator[tuple[str, str]]:
+        context = self.build_prompt_context()
+        yield from self.run_with_context(context)
 
-        context = self._build_context()
+    def run_with_context(self, context: str) -> Iterator[tuple[str, str]]:
         for agent_key, agent in AGENTS.items():
             prompt = f"{context}\n\nFocus task: {agent.description}"
             yield agent_key, self._call_agent(agent, prompt)

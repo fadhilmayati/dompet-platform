@@ -7,6 +7,7 @@ Dompet AI is a fully offline personal finance assistant that runs on top of your
 - Reuses the lightweight Ollama orchestration stack with `gemma3:1b` for reasoning and dialogue.
 - Splits work into four focused agents: ExpenseCategorizer, CashflowAnalyzer, SavingsPlanner, and BudgetAuditor.
 - Loads recent CSV rows with pandas and injects them directly into the LLM context—no external APIs.
+- Persists transactions and analyses locally with SQLite so each user builds a longitudinal coaching trail.
 - Produces Malaysian-English summaries that highlight income vs expenses, irregular spending, and actionable monthly tweaks.
 
 ## Requirements
@@ -40,6 +41,47 @@ python -m dompet_ai transactions.csv
 ```
 
 Each agent prints its findings directly in the terminal, keeping all processing on your machine.
+
+## Reasoning API (Path C)
+
+Dompet AI can now operate as an infrastructure layer that other finance apps embed. A lightweight FastAPI service exposes endpoints to ingest transactions, trigger agent runs, and retrieve the latest insights for a given user. The entire stack stays local by default and writes context to `dompet_ai.sqlite`.
+
+### Start the service
+
+```bash
+uvicorn dompet_ai.service:app --reload
+```
+
+### Example workflow
+
+1. **Push new transactions**
+
+    ```bash
+    curl -X POST http://127.0.0.1:8000/users/alya/transactions \
+      -H "Content-Type: application/json" \
+      -d '{
+        "source": "sandbox",
+        "transactions": [
+          {"date": "2024-08-01", "description": "Salary", "amount": 5200},
+          {"date": "2024-08-02", "description": "GrabFood dinner", "amount": -48.5},
+          {"date": "2024-08-03", "description": "PTPTN repayment", "amount": -150}
+        ]
+      }'
+    ```
+
+2. **Run the agents for the latest context**
+
+    ```bash
+    curl -X POST "http://127.0.0.1:8000/users/alya/analyze?limit=25"
+    ```
+
+3. **Retrieve the most recent recommendations**
+
+    ```bash
+    curl http://127.0.0.1:8000/users/alya/analyses/latest
+    ```
+
+This mode lets partner banks, fintechs, or wallet apps layer Dompet's reasoning and localisation into their own experiences without shipping sensitive data off-device.
 
 ## Project Structure
 
