@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator, List, Mapping, Sequence
+from typing import Iterator, List, Mapping, Sequence
 
 import pandas as pd
 
@@ -48,10 +48,18 @@ class Transaction:
 class DompetPipeline:
     """Loads transaction data and orchestrates the Ollama-backed agents."""
 
-    def __init__(self, transactions: Sequence[Transaction]):
+    def __init__(
+        self,
+        transactions: Sequence[Transaction],
+        *,
+        persona_context: str | None = None,
+        goal_context: str | None = None,
+    ):
         self.transactions = list(transactions)
         if not self.transactions:
             raise ValueError("No transactions available for analysis.")
+        self.persona_context = (persona_context or "").strip()
+        self.goal_context = (goal_context or "").strip()
 
     @classmethod
     def from_csv(cls, csv_path: str | Path, preview_rows: int = 20) -> "DompetPipeline":
@@ -95,7 +103,12 @@ class DompetPipeline:
     def build_prompt_context(self) -> str:
         header = "date | description | amount"
         lines = "\n".join(tx.to_prompt_row() for tx in self.transactions)
-        return f"Latest {len(self.transactions)} transactions:\n{header}\n{lines}"
+        blocks = [f"Latest {len(self.transactions)} transactions:\n{header}\n{lines}"]
+        if self.persona_context:
+            blocks.append(f"User behaviour notes: {self.persona_context}")
+        if self.goal_context:
+            blocks.append(f"Active goals: {self.goal_context}")
+        return "\n\n".join(blocks)
 
     def _call_agent(self, agent: Agent, user_prompt: str) -> str:
         response = client.chat(
@@ -114,5 +127,15 @@ class DompetPipeline:
 
     def run_with_context(self, context: str) -> Iterator[tuple[str, str]]:
         for agent_key, agent in AGENTS.items():
-            prompt = f"{context}\n\nFocus task: {agent.description}"
+            prompt_parts = [context, f"Focus task: {agent.description}"]
+            if self.persona_context:
+                prompt_parts.append(
+                    "Remember the user prefers personalised coaching: "
+                    f"{self.persona_context}"
+                )
+            if self.goal_context and agent_key == "GoalArchitect":
+                prompt_parts.append(
+                    "Incorporate the stated goals directly in your plan."
+                )
+            prompt = "\n\n".join(prompt_parts)
             yield agent_key, self._call_agent(agent, prompt)

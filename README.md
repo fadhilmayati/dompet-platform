@@ -4,11 +4,12 @@ Dompet AI is a fully offline personal finance assistant that runs on top of your
 
 ## Key Features
 
-- Reuses the lightweight Ollama orchestration stack with `gemma3:1b` for reasoning and dialogue.
-- Splits work into four focused agents: ExpenseCategorizer, CashflowAnalyzer, SavingsPlanner, and BudgetAuditor.
+- Runs fully offline using Ollama's `gemma3:1b` so transaction data never leaves the device.
+- Deploys five focused agents – ExpenseCategorizer, CashflowAnalyzer, SavingsPlanner, BudgetAuditor, and GoalArchitect – to cover daily habits and long-term planning.
 - Loads recent CSV rows with pandas and injects them directly into the LLM context—no external APIs.
-- Persists transactions and analyses locally with SQLite so each user builds a longitudinal coaching trail.
-- Produces Malaysian-English summaries that highlight income vs expenses, irregular spending, and actionable monthly tweaks.
+- Persists transactions, personalised user profiles, suggestions, and behavioural outcomes locally with SQLite.
+- Learns each user's tone, wins, and misses to produce Malaysian-English coaching that feels bespoke.
+- Surfaces partner-ready metrics (suggestions acted on, RM savings generated, recency of engagement) via the API.
 
 ## Requirements
 
@@ -69,19 +70,74 @@ uvicorn dompet_ai.service:app --reload
       }'
     ```
 
-2. **Run the agents for the latest context**
+2. **Optionally capture behavioural preferences**
+
+    ```bash
+    curl -X PUT http://127.0.0.1:8000/users/alya/profile \
+      -H "Content-Type: application/json" \
+      -d '{
+        "risk_tolerance": "balanced",
+        "response_style": "numbers-first",
+        "success_notes": "Responded well to automation but dislikes strict frugality"
+      }'
+    ```
+
+3. **Define a goal for the GoalArchitect agent**
+
+    ```bash
+    curl -X POST http://127.0.0.1:8000/users/alya/goals \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "Rumah deposit",
+        "target_amount": 50000,
+        "target_date": "2029-12-31",
+        "notes": "Prefer automated savings vs lifestyle cuts"
+      }'
+    ```
+
+4. **Run the agents for the latest context**
 
     ```bash
     curl -X POST "http://127.0.0.1:8000/users/alya/analyze?limit=25"
     ```
 
-3. **Retrieve the most recent recommendations**
+    Savings, alert, and goal agents now return structured suggestions with IDs you can track.
+
+5. **Record real-world outcomes when the user acts**
+
+    ```bash
+    curl -X POST http://127.0.0.1:8000/users/alya/suggestions/12/outcomes \
+      -H "Content-Type: application/json" \
+      -d '{
+        "outcome_status": "acted",
+        "impact": 180.0,
+        "notes": "Paused GrabFood orders for four weeks"
+      }'
+    ```
+
+6. **Retrieve the most recent recommendations**
 
     ```bash
     curl http://127.0.0.1:8000/users/alya/analyses/latest
     ```
 
-This mode lets partner banks, fintechs, or wallet apps layer Dompet's reasoning and localisation into their own experiences without shipping sensitive data off-device.
+7. **Share behavioural impact back to stakeholders**
+
+    ```bash
+    curl http://127.0.0.1:8000/users/alya/impact
+    ```
+
+This mode lets partner banks, fintechs, or wallet apps layer Dompet's reasoning, localisation, and retention metrics into their own experiences without shipping sensitive data off-device.
+
+### Partner integration playbook
+
+1. **Sync transactions nightly** using `/users/{user_id}/transactions`.
+2. **Hydrate behavioural context** with `/users/{user_id}/profile` so Dompet can tailor tone and strategy.
+3. **Capture user goals** via `/users/{user_id}/goals` to unlock GoalArchitect planning.
+4. **Trigger fresh reasoning** using `/users/{user_id}/analyze` on demand or after important events.
+5. **Render insights** by calling `/users/{user_id}/analyses/latest`; each suggestion carries an ID and latest outcome.
+6. **Report what happened** by posting to `/users/{user_id}/suggestions/{suggestion_id}/outcomes` whenever the app detects user action.
+7. **Track ROI** through `/users/{user_id}/impact`, which surfaces acted-on tips, estimated RM savings, and engagement recency.
 
 ## Project Structure
 
@@ -93,7 +149,9 @@ dompet_ai/
   agents.py             # Agent prompts and metadata
   cli.py                # Argument parsing and console output
   config.py             # Ollama client + model name
-  orchestrator.py       # CSV loader and task runner
+  orchestrator.py       # CSV loader and task runner with personalised context
+  service.py            # FastAPI application exposing the reasoning layer
+  storage.py            # SQLite-backed persistence (transactions, profiles, goals, metrics)
 ```
 
 ## Safety Notes
