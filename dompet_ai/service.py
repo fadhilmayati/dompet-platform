@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
+import datetime
 from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, status
@@ -21,7 +21,7 @@ from .storage import (
 
 
 class TransactionPayload(BaseModel):
-    date: date = Field(..., description="Transaction date in ISO format")
+    date: datetime.date = Field(..., description="Transaction date in ISO format")
     description: str = Field(..., description="Merchant or note")
     amount: float = Field(..., description="Positive for income, negative for expenses")
 
@@ -84,7 +84,9 @@ class UserProfileUpdateRequest(BaseModel):
 class GoalRequest(BaseModel):
     name: str = Field(..., description="Human readable goal name")
     target_amount: float = Field(..., gt=0, description="Goal amount in RM")
-    target_date: Optional[date] = Field(None, description="Target completion date")
+    target_date: Optional[datetime.date] = Field(
+        None, description="Target completion date"
+    )
     notes: Optional[str] = Field(None, max_length=300)
 
     @validator("name")
@@ -213,7 +215,11 @@ def create_app(store: Optional[SessionStore] = None) -> FastAPI:
             ) from exc
 
         latest_records = session_store.latest_analysis(user_id)
-        run_at = latest_records[0].run_at.isoformat() if latest_records else date.today().isoformat()
+        run_at = (
+            latest_records[0].run_at.isoformat()
+            if latest_records
+            else datetime.date.today().isoformat()
+        )
         return AnalysisResponse(run_id=run_id, run_at=run_at, context=context, results=results)
 
     @app.get("/users/{user_id}/analyses/latest", response_model=AnalysisResponse)
