@@ -370,6 +370,9 @@ class SessionStore:
     ) -> UserProfile:
         """Update editable profile attributes and return the new snapshot."""
 
+        # Ensure a profile row exists before attempting an update
+        self.get_or_create_user_profile(user_id)
+
         assignments: List[str] = []
         params: List[object] = []
         if risk_tolerance is not None:
