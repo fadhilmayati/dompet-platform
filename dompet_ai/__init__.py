@@ -1,13 +1,15 @@
 """Dompet AI offline personal finance assistant."""
 
-from .config import MODEL_NAME, client
+from .config import llm_provider
+from .models import ModelConfig, ModelFactory
 from .orchestrator import DompetPipeline, Transaction
 from .service import app, create_app
 from .storage import SessionStore
 
 __all__ = [
-    "client",
-    "MODEL_NAME",
+    "llm_provider",
+    "ModelConfig",
+    "ModelFactory",
     "DompetPipeline",
     "Transaction",
     "SessionStore",

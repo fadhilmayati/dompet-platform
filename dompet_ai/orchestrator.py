@@ -10,7 +10,11 @@ from typing import Iterator, List, Mapping, Sequence
 import pandas as pd
 
 from .agents import AGENTS, Agent
-from .config import MODEL_NAME, client
+from .config import llm_provider
+from .models import LLMProvider
+
+# Backwards compatibility: expose ``client`` for tests/mocks expecting Ollama client.
+client = llm_provider
 
 
 @dataclass
@@ -46,7 +50,7 @@ class Transaction:
 
 
 class DompetPipeline:
-    """Loads transaction data and orchestrates the Ollama-backed agents."""
+    """Loads transaction data and orchestrates the Dompet AI agents."""
 
     def __init__(
         self,
@@ -54,12 +58,14 @@ class DompetPipeline:
         *,
         persona_context: str | None = None,
         goal_context: str | None = None,
+        model_provider: LLMProvider | None = None,
     ):
         self.transactions = list(transactions)
         if not self.transactions:
             raise ValueError("No transactions available for analysis.")
         self.persona_context = (persona_context or "").strip()
         self.goal_context = (goal_context or "").strip()
+        self.model_provider = model_provider or llm_provider
 
     @classmethod
     def from_csv(cls, csv_path: str | Path, preview_rows: int = 20) -> "DompetPipeline":
@@ -111,15 +117,23 @@ class DompetPipeline:
         return "\n\n".join(blocks)
 
     def _call_agent(self, agent: Agent, user_prompt: str) -> str:
-        response = client.chat(
-            model=MODEL_NAME,
-            messages=[
-                {"role": "system", "content": agent.system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
+        messages = [
+            {"role": "system", "content": agent.system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        response = self.model_provider.chat(
+            system_prompt=agent.system_prompt,
+            user_message=user_prompt,
+            messages=messages,
+            temperature=0.7,
+            max_tokens=1000,
         )
-        message = response.get("message") or {}
-        return message.get("content", "")
+        if isinstance(response, str):
+            return response
+        if isinstance(response, dict):
+            message = response.get("message") or {}
+            return message.get("content", "")
+        return str(response)
 
     def run(self) -> Iterator[tuple[str, str]]:
         context = self.build_prompt_context()

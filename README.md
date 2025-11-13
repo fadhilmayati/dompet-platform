@@ -1,10 +1,11 @@
 # Dompet AI (Offline)
 
-Dompet AI is a fully offline personal finance assistant that runs on top of your local Ollama installation. It ingests a CSV export of your transactions, sends the latest entries to a small on-device LLM, and prints concise Malaysian-English coaching about cash flow, categories, and savings ideas.
+Dompet AI is a personal finance assistant with a swappable LLM layer. It can run fully offline on top of a local Ollama installation, call hosted models such as Fireworks AI for low-cost pilots, or tap premium reasoning with Anthropic Claude. The pipeline ingests a CSV export of your transactions, sends the latest entries to the configured model, and prints concise Malaysian-English coaching about cash flow, categories, and savings ideas.
 
 ## Key Features
 
-- Runs fully offline using Ollama's `gemma3:1b` so transaction data never leaves the device.
+- Pluggable LLM provider layer (Ollama, Anthropic, Fireworks AI, OpenAI) so you can match cost and quality per deployment.
+- Runs fully offline using Ollama's `gemma3:1b` when you need on-device processing.
 - Deploys five focused agents – ExpenseCategorizer, CashflowAnalyzer, SavingsPlanner, BudgetAuditor, and GoalArchitect – to cover daily habits and long-term planning.
 - Loads recent CSV rows with pandas and injects them directly into the LLM context—no external APIs.
 - Persists transactions, personalised user profiles, suggestions, and behavioural outcomes locally with SQLite.
@@ -14,7 +15,7 @@ Dompet AI is a fully offline personal finance assistant that runs on top of your
 ## Requirements
 
 - Python 3.11+
-- [Ollama](https://ollama.com/) running locally with the `gemma3:1b` model pulled.
+- Selected LLM provider dependencies (see [Configuring providers](#configuring-providers)).
 - CSV file with `date`, `description`, and `amount` columns (case insensitive).
 
 Install the Python dependencies:
@@ -25,7 +26,8 @@ pip install -r requirements.txt
 
 ## Usage
 
-1. Ensure Ollama is running on `http://127.0.0.1:11434` and that `gemma3:1b` is available (`ollama pull gemma3:1b`).
+1. Configure your preferred LLM provider (defaults to Ollama) via environment variables or a `.env` file. See [Configuring providers](#configuring-providers).
+2. Ensure the chosen provider is reachable (e.g., Ollama running locally or hosted API keys set).
 2. Prepare a CSV file, for example:
 
 ```csv
@@ -42,6 +44,51 @@ python -m dompet_ai transactions.csv
 ```
 
 Each agent prints its findings directly in the terminal, keeping all processing on your machine.
+
+## Configuring providers
+
+Dompet AI reads environment variables to determine which LLM backend to use. Copy `.env.example` to `.env` (or export the variables manually) to switch between providers without code changes.
+
+| Scenario | Environment variables |
+| --- | --- |
+| Fast local development | `DOMPET_LLM_PROVIDER=ollama`, `DOMPET_LLM_MODEL=gemma3:1b`, optional `DOMPET_LLM_ENDPOINT=http://127.0.0.1:11434` |
+| Low-cost pilot | `DOMPET_LLM_PROVIDER=fireworks`, `DOMPET_LLM_MODEL=accounts/fireworks/models/llama-v3p1-8b-instruct`, `DOMPET_LLM_API_KEY=fw_xxx` |
+| Premium reasoning | `DOMPET_LLM_PROVIDER=anthropic`, `DOMPET_LLM_MODEL=claude-3-5-sonnet-20241022`, `DOMPET_LLM_API_KEY=sk-ant-xxx` |
+| OpenAI compatibility | `DOMPET_LLM_PROVIDER=openai`, `DOMPET_LLM_MODEL=gpt-4o-mini`, `DOMPET_LLM_API_KEY=sk-xxx` |
+
+For more advanced routing you can instantiate providers directly:
+
+```python
+from dompet_ai.models import ModelConfig, ModelFactory
+
+prod_provider = ModelFactory.create(
+    ModelConfig(
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+        api_key="sk-ant-...",
+    )
+)
+```
+
+Pass `model_provider=prod_provider` to `DompetPipeline` (or inject it into your service layer) to override the global default.
+
+## OCR pipeline
+
+Need to parse receipts or statements? `dompet_ai.ocr` exposes a similar abstraction with interchangeable providers:
+
+- `TesseractOCR` – free and on-device.
+- `PaddleOCRProvider` – faster open source OCR.
+- `ClaudeVisionOCR` – high accuracy using Anthropic Claude vision models.
+- `GoogleVisionOCR` – Google Cloud Vision API for enterprise deployments.
+
+```python
+from dompet_ai.ocr import OCRFactory
+
+ocr = OCRFactory.create("paddle")
+result = ocr.extract_transactions("receipt.jpg")
+```
+
+Each provider returns an `OCRResult` with the raw text, parsed transactions, provider name, and a confidence score.
 
 ## Reasoning API (Path C)
 
@@ -148,7 +195,9 @@ dompet_ai/
   __main__.py           # Enables `python -m dompet_ai`
   agents.py             # Agent prompts and metadata
   cli.py                # Argument parsing and console output
-  config.py             # Ollama client + model name
+  config.py             # LLM provider configuration (environment aware)
+  models.py             # Provider abstraction for Ollama, Anthropic, Fireworks, OpenAI
+  ocr.py                # OCR provider abstraction (Tesseract, Paddle, Claude Vision, Google)
   orchestrator.py       # CSV loader and task runner with personalised context
   service.py            # FastAPI application exposing the reasoning layer
   storage.py            # SQLite-backed persistence (transactions, profiles, goals, metrics)
@@ -156,6 +205,6 @@ dompet_ai/
 
 ## Safety Notes
 
-- The CSV is only read locally; nothing is uploaded or cached online.
-- Gemma 3 runs via Ollama on your device, so there are no external API calls.
+- The CSV is only read locally; nothing is uploaded or cached online unless you choose a hosted LLM provider.
+- When running Ollama locally the entire flow stays on-device; hosted APIs require sending prompts to their respective services.
 - Review suggestions before acting; Dompet AI offers heuristics, not professional advice.
