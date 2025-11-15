@@ -9,7 +9,7 @@ from typing import Iterator, List, Mapping, Sequence
 
 import pandas as pd
 
-from .agents import AGENTS, Agent
+from .malaysian_agents import AGENTS, Agent
 from .config import llm_provider
 from .models import LLMProvider
 
