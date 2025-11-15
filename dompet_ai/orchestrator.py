@@ -1,4 +1,4 @@
-"""Core orchestration logic for Dompet AI agents."""
+"""Core orchestration logic for Dompet AI agents with Malaysian context."""
 
 from __future__ import annotations
 
@@ -12,6 +12,16 @@ import pandas as pd
 from .agents import AGENTS, Agent
 from .config import llm_provider
 from .models import LLMProvider
+
+# Malaysian financial context
+MALAYSIAN_CONTEXT = """
+CRITICAL MALAYSIAN CONTEXT - READ FIRST:
+- Currency: Ringgit Malaysia (RM), NOT dollars
+- Retirement: EPF/KWSP (NOT IRA or 401k)
+- Savings: ASB, Tabung Haji, EPF Account 3 (NOT American accounts)
+- Common merchants: GrabFood, Tesco, 99 Speedmart, LRT, TNB
+- Use Malaysian English: "lah", "kan", "already", "confirm boleh"
+"""
 
 # Backwards compatibility: expose ``client`` for tests/mocks expecting Ollama client.
 client = llm_provider
@@ -117,12 +127,15 @@ class DompetPipeline:
         return "\n\n".join(blocks)
 
     def _call_agent(self, agent: Agent, user_prompt: str) -> str:
+        # Inject Malaysian context into system prompt
+        enhanced_system = f"{MALAYSIAN_CONTEXT}\n\n{agent.system_prompt}"
+        
         messages = [
-            {"role": "system", "content": agent.system_prompt},
+            {"role": "system", "content": enhanced_system},
             {"role": "user", "content": user_prompt},
         ]
         response = self.model_provider.chat(
-            system_prompt=agent.system_prompt,
+            system_prompt=enhanced_system,
             user_message=user_prompt,
             messages=messages,
             temperature=0.7,
@@ -149,7 +162,8 @@ class DompetPipeline:
                 )
             if self.goal_context and agent_key == "GoalArchitect":
                 prompt_parts.append(
-                    "Incorporate the stated goals directly in your plan."
+                    "Incorporate the stated goals directly in your plan. "
+                    "Use MALAYSIAN savings options only (EPF, ASB, Tabung Haji, FD)."
                 )
             prompt = "\n\n".join(prompt_parts)
             yield agent_key, self._call_agent(agent, prompt)

@@ -1,0 +1,142 @@
+# Malaysian Financial Context in Dompet AI
+
+Dompet AI is specifically designed for **Malaysian users** and understands local financial concepts.
+
+---
+
+## What Dompet AI Knows About Malaysia
+
+### 🏦 Savings & Retirement
+- **EPF/KWSP** (Employees Provident Fund)
+  - Account 1: Retirement (locked until 55)
+  - Account 2: Housing/education withdrawals
+  - Account 3 (i-Akaun): Voluntary, withdraw anytime
+- **ASB** (Amanah Saham Bumiputera) - ~4-6% dividend
+- **Tabung Haji** - For Muslims, hajj savings
+- **Fixed Deposits** - Maybank, CIMB, Public Bank (2.5-3.5% p.a.)
+
+### 🛍️ Common Merchants
+- **Groceries**: Tesco, AEON, 99 Speedmart, NSK, Mydin
+- **Food Delivery**: GrabFood, Foodpanda, Shopeefood
+- **Transport**: Grab, LRT, MRT, Rapid KL, Touch 'n Go
+- **E-wallets**: GrabPay, Boost, ShopeePay, MAE
+- **Telco**: Celcom, Maxis, Digi, Unifi Mobile
+
+### 💰 Typical Expenses
+- **Rent**: RM800-RM2,000/month (KL/Selangor)
+- **Utilities**: TNB (RM100-RM200), water (RM30-RM60)
+- **Food**: RM15-RM30/day (mamak RM8-RM15)
+- **Transport**: Petrol RM200-RM400, LRT RM100-RM200
+- **Mobile**: RM30-RM80/month
+
+### 🎯 Common Goals
+- **Emergency fund**: 6 months expenses (RM15k-RM40k)
+- **House deposit**: RM50k-RM150k (10% of property)
+- **Car deposit**: RM10k-RM30k
+- **Wedding**: RM30k-RM80k
+- **Hajj**: RM25k-RM35k per person
+
+---
+
+## What Dompet AI WON'T Suggest
+
+❌ **American retirement accounts** (IRA, Roth IRA, 401k)  
+❌ **US dollars or cents**  
+❌ **American banks** (Chase, Bank of America)  
+❌ **American stores** (Walmart, Target)  
+
+✅ **Only Malaysian savings vehicles** (EPF, ASB, Tabung Haji, FD)  
+✅ **Ringgit Malaysia (RM)** amounts  
+✅ **Local merchants and services**  
+
+---
+
+## Language Style
+
+Dompet AI uses **Malaysian English** - casual and friendly:
+
+- "Your savings looking good lah this month!"
+- "Can automate RM300 to EPF, confirm boleh!"
+- "Wah, GrabFood spending bit high already"
+- "This plan quite realistic for Malaysian salary, kan?"
+
+---
+
+## If You Get American Advice
+
+If the AI suggests IRA/401k/dollars, it means:
+
+1. **The model is too small** (gemma3:1b struggles with context)
+2. **Solution**: Use a better model:
+   ```bash
+   # Try larger Ollama models
+   ollama pull llama3:8b
+   
+   # Or use Claude (best Malaysian context)
+   export DOMPET_LLM_PROVIDER=anthropic
+   export DOMPET_LLM_MODEL=claude-3-5-sonnet-20241022
+   export DOMPET_LLM_API_KEY=sk-ant-...
+   ```
+
+---
+
+## Improving Malaysian Context
+
+The system prompt explicitly tells the AI:
+
+> "CRITICAL: Only suggest MALAYSIAN savings vehicles: EPF, ASB, Tabung Haji, Fixed Deposits. NEVER suggest IRA, Roth IRA, 401k."
+
+But smaller models (like gemma3:1b) sometimes ignore instructions. Larger models follow them better.
+
+### Recommended Models for Malaysian Context
+
+| Model | Size | Malaysian Context Quality | Cost |
+|-------|------|---------------------------|------|
+| gemma3:1b | 1.5GB | ⭐⭐ (struggles) | Free (offline) |
+| llama3:8b | 4.7GB | ⭐⭐⭐⭐ (good) | Free (offline) |
+| llama3:70b | 40GB | ⭐⭐⭐⭐⭐ (excellent) | Free (offline, needs GPU) |
+| Claude Sonnet | API | ⭐⭐⭐⭐⭐ (best) | ~$3 per 1M tokens |
+
+---
+
+## Quick Test
+
+Want to verify Malaysian context is working?
+
+```bash
+# Run analysis
+python3 -m dompet_ai sample_transactions_1000.csv
+
+# Check the output:
+# ✅ Should mention: EPF, ASB, Tabung Haji, RM amounts
+# ❌ Should NOT mention: IRA, 401k, dollars, US banks
+```
+
+If you see American terms, upgrade your model:
+
+```bash
+# Pull larger model
+ollama pull llama3:8b
+
+# Tell Dompet AI to use it
+export DOMPET_LLM_MODEL=llama3:8b
+
+# Run again
+python3 -m dompet_ai sample_transactions_1000.csv
+```
+
+---
+
+## Contributing Malaysian Context
+
+See something wrong? Help us improve Malaysian context:
+
+1. Open `dompet_ai/agents.py`
+2. Update the system prompts with better local examples
+3. Submit a pull request
+
+Common improvements:
+- Add more Malaysian merchant names
+- Update typical expense ranges
+- Include regional variations (Sabah/Sarawak vs. Peninsular)
+- Add Bahasa Malaysia terms
